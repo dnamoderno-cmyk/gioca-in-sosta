@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adesivi QR · Gioca in sosta</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+body{margin:0;font-family:Montserrat,system-ui,sans-serif;background:#EEF2F5;color:#242F3B}
+.wrap{max-width:860px;margin:0 auto;padding:24px 16px}
+h1{font-size:22px;margin:0 0 6px}
+p{font-size:14px;line-height:1.5;margin:0 0 10px}
+.form{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin:16px 0}
+.form label{font-size:12px;font-weight:700;display:block;margin-bottom:4px}
+.form select,.form input{width:100%;font:600 15px Montserrat,sans-serif;padding:10px;border:2px solid #242F3B;border-radius:0;box-sizing:border-box}
+.form .pieno{grid-column:1/-1}
+button{font:700 14px Montserrat,sans-serif;background:#242F3B;color:#fff;border:0;padding:12px 16px;cursor:pointer;margin-right:8px}
+.fogli{display:flex;flex-wrap:wrap;gap:16px;margin-top:18px}
+.adesivo{background:#fff;width:300px;padding:22px 22px 18px;text-align:center;border-top:10px solid #07A9E2;border-bottom:10px solid #F3B628;box-shadow:0 4px 18px rgba(0,0,0,.08)}
+.adesivo h2{font-size:20px;margin:0}
+.adesivo .st{font-size:13px;margin:4px 0 0}
+.adesivo .qr svg{width:220px;height:220px;display:block;margin:12px auto 6px}
+.adesivo .inq{font-weight:800;font-size:13px}
+.adesivo .no{font-size:11px;margin-top:8px;color:#4B5256}
+.adesivo .url{font-size:9px;color:#93A3B0;word-break:break-all;margin-top:6px}
+@media print{.wrap>*:not(.fogli){display:none}.adesivo{box-shadow:none;break-inside:avoid}body{background:#fff}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Adesivi QR · Gioca in sosta</h1>
+  <p>Un QR per colonnina: porta la stazione e il numero della colonnina, così la sessione si verifica sullo stato di quel connettore. Sull’adesivo resta scritto che la pagina non chiede mai pagamenti.</p>
+  <div class="form">
+    <div><label for="st">Stazione</label><select id="st"></select></div>
+    <div><label for="n">Colonnine</label><input id="n" type="number" min="1" max="12" value="4"></div>
+    <div class="pieno"><label for="base">Indirizzo della web app</label><input id="base"></div>
+  </div>
+  <button id="gen">Genera</button><button id="stampa">Stampa</button>
+  <div class="fogli" id="fogli"></div>
+</div>
+<script>
+let stazioni = [];
+const base = document.getElementById('base');
+base.value = location.href.replace(/qr\.html.*$/, '');
+fetch('index.html').then(r => r.text()).then(t => {
+  const m = t.match(/const DATI = (\{.*?\});\n/s);
+  stazioni = m ? JSON.parse(m[1]).stazioni : [];
+  stazioni.sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+  document.getElementById('st').innerHTML = stazioni.map(s => '<option value="' + s.id + '"' + (s.id === 'secchia-ovest' ? ' selected' : '') + '>' + s.nome + (s.autostrada ? ' · ' + s.autostrada : '') + '</option>').join('');
+  const s = stazioni.find(x => x.id === 'secchia-ovest'); if (s) document.getElementById('n').value = s.colonnine.length;
+  genera();
+}).catch(() => { document.getElementById('fogli').textContent = 'Apri questa pagina dal server della web app: legge le stazioni da index.html.'; });
+document.getElementById('st').onchange = e => { const s = stazioni.find(x => x.id === e.target.value); if (s) document.getElementById('n').value = s.colonnine.length || 1; genera(); };
+document.getElementById('gen').onclick = genera;
+document.getElementById('stampa').onclick = () => window.print();
+function genera() {
+  const s = stazioni.find(x => x.id === document.getElementById('st').value); if (!s) return;
+  const n = Math.max(1, Math.min(12, +document.getElementById('n').value || 1));
+  let html = '';
+  for (let c = 1; c <= n; c++) {
+    const url = base.value + '?s=' + encodeURIComponent(s.id) + '&c=' + c;
+    const q = qrcode(0, 'M'); q.addData(url); q.make();
+    html += '<div class="adesivo"><h2>Gioca in sosta</h2><p class="st">' + s.nome + ' · Colonnina ' + c + '</p><div class="qr">' + q.createSvgTag({cellSize: 6, margin: 2, scalable: true}) + '</div><div class="inq">Inquadra con la fotocamera</div><div class="no">Qui non ti chiediamo mai di pagare.</div><div class="url">' + url + '</div></div>';
+  }
+  document.getElementById('fogli').innerHTML = html;
+}
+</script>
+</body>
+</html>
